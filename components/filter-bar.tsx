@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Suspense } from 'react';
 
 const COUNTRIES = [
   { value: 'USA', label: 'Etats-Unis' },
@@ -44,7 +45,7 @@ const STATUSES = [
   { value: 'NA', label: 'N/A' },
 ];
 
-export function FilterBar() {
+function FilterBarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -154,3 +155,10 @@ export function FilterBar() {
   );
 }
 
+export function FilterBar() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FilterBarContent />
+    </Suspense>
+  );
+}

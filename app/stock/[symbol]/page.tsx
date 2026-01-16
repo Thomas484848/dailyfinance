@@ -1,7 +1,7 @@
 'use client';
 
+import { Suspense, useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/status-badge';
 import { WatchlistButton } from '@/components/watchlist-button';
@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { LogoImage } from '@/components/logo-image';
 import { apiFetch } from '@/lib/api-client';
 
-export default function StockPage() {
+function StockPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const symbol = params.symbol as string;
@@ -262,6 +262,14 @@ export default function StockPage() {
       </Card>
 
     </div>
+  );
+}
+
+export default function StockPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StockPage />
+    </Suspense>
   );
 }
 

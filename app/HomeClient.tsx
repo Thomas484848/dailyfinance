@@ -9,7 +9,7 @@ import { TableSkeleton } from '@/components/table-skeleton';
 import { EmptyState } from '@/components/empty-state';
 import { apiFetch } from '@/lib/api-client';
 
-export default function HomePage() {
+function HomePage() {
   const searchParams = useSearchParams();
   const [stocks, setStocks] = useState<StockRow[]>([]);
   const [pagination, setPagination] = useState({
@@ -91,6 +91,14 @@ export default function HomePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function HomePageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePage />
+    </Suspense>
   );
 }
 

@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
+import { Suspense } from 'react';
 
-export function SearchBar() {
+function SearchBarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [value, setValue] = useState(searchParams.get('query') || '');
@@ -41,6 +42,14 @@ export function SearchBar() {
         }}
       />
     </div>
+  );
+}
+
+export function SearchBar() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchBarContent />
+    </Suspense>
   );
 }
 

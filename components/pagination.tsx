@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 interface PaginationProps {
   currentPage: number;
@@ -11,7 +12,12 @@ interface PaginationProps {
   itemsPerPage: number;
 }
 
-export function Pagination({ currentPage, totalPages, totalItems, itemsPerPage }: PaginationProps) {
+function PaginationContent({
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+}: PaginationProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -53,6 +59,14 @@ export function Pagination({ currentPage, totalPages, totalItems, itemsPerPage }
         </Button>
       </div>
     </div>
+  );
+}
+
+export function Pagination(props: PaginationProps) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaginationContent {...props} />
+    </Suspense>
   );
 }
 
