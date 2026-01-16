@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StockChart } from '@/components/stock-chart';
 import Link from 'next/link';
 import { LogoImage } from '@/components/logo-image';
+import { apiFetch } from '@/lib/api-client';
 
 export default function StockPage() {
   const params = useParams();
@@ -31,7 +32,7 @@ export default function StockPage() {
     async function fetchStock() {
       try {
         const query = exchange ? `?exchange=${encodeURIComponent(exchange)}` : '';
-        const res = await fetch(`/api/stocks/${symbol}${query}`);
+        const res = await apiFetch(`/api/stocks/${symbol}${query}`);
 
         if (!res.ok) {
           throw new Error('Action non trouvee');

@@ -8,6 +8,7 @@ import type { StockRow } from '@/components/stocks-table';
 import { Pagination } from '@/components/pagination';
 import { TableSkeleton } from '@/components/table-skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { apiFetch } from '@/lib/api-client';
 
 export default function HomePage() {
   const searchParams = useSearchParams();
@@ -36,7 +37,7 @@ export default function HomePage() {
         if (searchParams.get('page')) params.set('page', searchParams.get('page')!);
         if (!queryValue && !params.has('reliableOnly')) params.set('reliableOnly', '1');
 
-        const res = await fetch(`/api/stocks?${params.toString()}`);
+        const res = await apiFetch(`/api/stocks?${params.toString()}`);
 
         if (!res.ok) {
           throw new Error('Erreur lors du chargement des donnees');
