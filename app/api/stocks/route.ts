@@ -496,9 +496,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    type InstrumentRow = (typeof instruments)[number];
     const paginatedInstruments = paginatedStocks
       .map((stock) => instrumentByKey.get(`${stock.symbol}|${stock.exchange ?? ''}`))
-      .filter((instrument): instrument is { id: string } => Boolean(instrument));
+      .filter((instrument): instrument is InstrumentRow => instrument !== undefined);
 
     const paginatedInstrumentIds = Array.from(
       new Set(paginatedInstruments.map((instrument) => instrument.id))

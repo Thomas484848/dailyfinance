@@ -1,8 +1,8 @@
 import { sleep } from '../utils';
 
-type Task<T> = {
-  run: () => Promise<T>;
-  resolve: (value: T) => void;
+type Task = {
+  run: () => Promise<unknown>;
+  resolve: (value: unknown) => void;
   reject: (error: unknown) => void;
 };
 
@@ -12,27 +12,37 @@ type LimiterOptions = {
   maxConcurrent?: number | null;
 };
 
+type LimiterResolvedOptions = {
+  requestsPerMinute: number | null;
+  requestsPerDay: number | null;
+  maxConcurrent: number;
+};
+
 export class ProviderLimiter {
-  private queue: Task<unknown>[] = [];
+  private queue: Task[] = [];
   private activeCount = 0;
   private minuteWindowStart = Date.now();
   private dayWindowStart = Date.now();
   private minuteCount = 0;
   private dayCount = 0;
   private timer: NodeJS.Timeout | null = null;
-  private options: Required<LimiterOptions>;
+  private options: LimiterResolvedOptions;
 
   constructor(options: LimiterOptions) {
     this.options = {
       requestsPerMinute: options.requestsPerMinute ?? null,
       requestsPerDay: options.requestsPerDay ?? null,
-      maxConcurrent: options.maxConcurrent ?? 2,
+      maxConcurrent: Math.max(1, options.maxConcurrent ?? 2),
     };
   }
 
   schedule<T>(run: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      this.queue.push({ run, resolve, reject });
+      this.queue.push({
+        run: run as () => Promise<unknown>,
+        resolve: (value) => resolve(value as T),
+        reject,
+      });
       this.processQueue();
     });
   }

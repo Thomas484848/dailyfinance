@@ -114,12 +114,22 @@ export class AlphaVantageProvider implements StockProvider {
       const quote = data['Global Quote'];
       if (!quote || !quote['01. symbol']) return null;
 
+      const toNumber = (value: string | undefined): number | undefined => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      };
+
+      const changePercentRaw = quote['10. change percent'];
+      const changePercentValue = changePercentRaw
+        ? toNumber(changePercentRaw.replace('%', ''))
+        : undefined;
+
       return {
         symbol: quote['01. symbol'],
         name: symbol, // AV ne retourne pas le nom dans GLOBAL_QUOTE
-        price: parseFloat(quote['05. price']) || null,
-        change: parseFloat(quote['09. change']) || null,
-        changePercent: parseFloat(quote['10. change percent']?.replace('%', '')) || null,
+        price: toNumber(quote['05. price']),
+        change: toNumber(quote['09. change']),
+        changePercent: changePercentValue,
       };
     } catch (error) {
       console.error(`Alpha Vantage fetchQuote error for ${symbol}:`, error);
@@ -136,6 +146,11 @@ export class AlphaVantageProvider implements StockProvider {
 
       if (!data || !data.Symbol) return null;
 
+      const toNumber = (value: string | undefined): number | undefined => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      };
+
       return {
         symbol: data.Symbol,
         name: data.Name,
@@ -144,8 +159,8 @@ export class AlphaVantageProvider implements StockProvider {
         country: data.Country,
         sector: data.Sector,
         industry: data.Industry,
-        marketCap: parseFloat(data.MarketCapitalization) || null,
-        pe: parseFloat(data.PERatio) || null,
+        marketCap: toNumber(data.MarketCapitalization),
+        pe: toNumber(data.PERatio),
       };
     } catch (error) {
       console.error(`Alpha Vantage fetchProfile error for ${symbol}:`, error);
