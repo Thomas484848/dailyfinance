@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Stock {
+  id        String   @id @default(cuid())
+  symbol    String
+  name      String
+  isin      String?
+  exchange  String?
+  currency  String?
+  country   String?
+  sector    String?
+  industry  String?
+  marketCap Float?
+  type      String?  // Type d'instrument : COMMON STOCK, ETF, FUND, etc.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes         Quote[]
+  valuations     Valuation[]
+  watchlistItems WatchlistItem[]
+
+  @@unique([symbol, exchange])
+  @@unique([isin])
+  @@index([symbol])
+  @@index([name])
+  @@index([country])
+  @@index([exchange])
+  @@index([type])
+}
+
+model Quote {
+  id            String   @id @default(cuid())
+  stockId       String
+  price         Float?
+  change        Float?
+  changePercent Float?
+  volume        Float?
+  timestamp     DateTime @default(now())
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([stockId])
+  @@index([timestamp])
+}
+
+model Valuation {
+  id        String   @id @default(cuid())
+  stockId   String
+  peCurrent Float?
+  peAvg     Float?
+  status    String   @default("NA") // UNDER, FAIR, OVER, NA
+  updatedAt DateTime @updatedAt
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([stockId])
+  @@index([status])
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userKey   String
+  stockId   String
+  createdAt DateTime @default(now())
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@unique([userKey, stockId])
+  @@index([userKey])
+}
+
+model DataSource {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  type        String
+  lastSync    DateTime?
+  status      String    @default("active")
+  coverage    String    // Stocke comme JSON string
+  rateLimit   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+
+model Instrument {
+  id           String   @id @default(cuid())
+  symbol       String
+  exchangeCode String?
+  name         String?
+  country      String?
+  currency     String?
+  sector       String?
+  industry     String?
+  isin         String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  aliases        SymbolAlias[]
+  metrics        Metrics[]
+  providerCaches ProviderCache[]
+  jobRuns        JobRun[]
+
+  @@unique([symbol, exchangeCode])
+  @@index([symbol])
+  @@index([exchangeCode])
+  @@index([country])
+}
+
+model SymbolAlias {
+  id           String   @id @default(cuid())
+  instrumentId String
+  provider     String
+  symbol       String
+  exchangeCode String?
+  createdAt    DateTime @default(now())
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, symbol, exchangeCode])
+  @@index([instrumentId])
+  @@index([provider])
+}
+
+model ProviderCache {
+  id           String   @id @default(cuid())
+  instrumentId String
+  provider     String
+  endpoint     String
+  payloadJson  String
+  fetchedAt    DateTime @default(now())
+  ttlSeconds   Int
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([instrumentId])
+  @@index([provider, endpoint])
+  @@index([fetchedAt])
+}
+
+model Metrics {
+  id              String   @id @default(cuid())
+  instrumentId    String
+  asOfDate        DateTime @default(now())
+
+  price           Float?
+  open            Float?
+  high            Float?
+  low             Float?
+  close           Float?
+  volume          Float?
+  marketCap       Float?
+  pe              Float?
+  eps             Float?
+  dividendYield   Float?
+  revenueTtm      Float?
+  netIncomeTtm    Float?
+  grossMargin     Float?
+  operatingMargin Float?
+  profitMargin    Float?
+  dividendPerShare Float?
+  payoutRatio     Float?
+  revenuePerShare Float?
+  epsDiluted      Float?
+  sharesOutstanding Float?
+  floatShares       Float?
+  beta              Float?
+  week52High        Float?
+  week52Low         Float?
+  avgVolume         Float?
+  enterpriseValue   Float?
+  ebitdaTtm         Float?
+  freeCashFlowTtm   Float?
+  operatingCashFlowTtm Float?
+  grossProfitTtm    Float?
+  totalDebt         Float?
+  totalCash         Float?
+  debtToEquity      Float?
+  currentRatio      Float?
+  quickRatio        Float?
+  priceToBook       Float?
+  priceToSales      Float?
+  pegRatio          Float?
+  evToEbitda        Float?
+  evToRevenue       Float?
+  bookValuePerShare Float?
+  roa               Float?
+  roe               Float?
+  roi               Float?
+
+  priceSource           String?
+  openSource            String?
+  highSource            String?
+  lowSource             String?
+  closeSource           String?
+  volumeSource          String?
+  marketCapSource       String?
+  peSource              String?
+  epsSource             String?
+  dividendYieldSource   String?
+  revenueTtmSource      String?
+  netIncomeTtmSource    String?
+  grossMarginSource     String?
+  operatingMarginSource String?
+  profitMarginSource    String?
+  dividendPerShareSource String?
+  payoutRatioSource     String?
+  revenuePerShareSource String?
+  epsDilutedSource      String?
+  sharesOutstandingSource String?
+  floatSharesSource       String?
+  betaSource              String?
+  week52HighSource        String?
+  week52LowSource         String?
+  avgVolumeSource         String?
+  enterpriseValueSource   String?
+  ebitdaTtmSource         String?
+  freeCashFlowTtmSource   String?
+  operatingCashFlowTtmSource String?
+  grossProfitTtmSource    String?
+  totalDebtSource         String?
+  totalCashSource         String?
+  debtToEquitySource      String?
+  currentRatioSource      String?
+  quickRatioSource        String?
+  priceToBookSource       String?
+  priceToSalesSource      String?
+  pegRatioSource          String?
+  evToEbitdaSource        String?
+  evToRevenueSource       String?
+  bookValuePerShareSource String?
+  roaSource               String?
+  roeSource               String?
+  roiSource               String?
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([instrumentId])
+  @@index([asOfDate])
+}
+
+model Job {
+  id         String   @id @default(cuid())
+  type       String
+  status     String   @default("pending")
+  metaJson   String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  runs JobRun[]
+
+  @@index([type])
+  @@index([status])
+}
+
+model JobRun {
+  id           String   @id @default(cuid())
+  jobId        String
+  instrumentId String
+  status       String   @default("pending")
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([instrumentId])
+  @@index([status])
+}
