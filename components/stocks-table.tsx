@@ -135,7 +135,7 @@ export function StocksTable({ data }: StocksTableProps) {
       accessorKey: 'marketCap',
       header: 'Capitalisation',
       cell: ({ row }) => (
-        <span className="text-sm">{formatMarketCap(row.original.marketCap)}</span>
+        <span className="text-sm">{formatMarketCap(row.original.marketCap ?? null)}</span>
       ),
     },
     {
