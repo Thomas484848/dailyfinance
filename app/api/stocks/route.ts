@@ -1,3 +1,10 @@
+export const dynamic = 'force-dynamic';
+
+
+
+
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import { computeValuation } from '@/lib/valuation';
 import { chunk } from '@/lib/utils';
