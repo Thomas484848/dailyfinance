@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   const results = await prisma.instrument.findMany({
     where: {
       OR: [
-        { symbol: { contains: query, mode: 'insensitive' } },
-        { name: { contains: query, mode: 'insensitive' } },
+        { symbol: { contains: query } },
+        { name: { contains: query } },
       ],
     },
     take: 20,
