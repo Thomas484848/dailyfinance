@@ -1,12 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#ffffff"/>
-  <path
-    d="M7 20 L13 14 L18 18 L25 9"
-    stroke="#0f172a"
-    stroke-width="2.6"
-    fill="none"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <circle cx="25" cy="9" r="2" fill="#0f172a"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+  <rect width="24" height="24" rx="6" fill="#ffffff"/>
+  <g stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </g>
 </svg>
