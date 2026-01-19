@@ -1,11 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Space_Grotesk, Fraunces } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Header } from '@/components/header';
 import { QueryProvider } from '@/components/query-provider';
+import { Toaster } from '@/components/ui/toaster';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-sans',
+});
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-display',
+});
 
 export const metadata: Metadata = {
   title: 'Daily Finance',
@@ -19,18 +27,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${spaceGrotesk.variable} ${fraunces.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <QueryProvider>
             <div className="min-h-screen bg-background">
               <Header />
-              <main className="container mx-auto px-4 py-8">{children}</main>
+              <main>{children}</main>
             </div>
+            <Toaster />
           </QueryProvider>
         </ThemeProvider>
       </body>

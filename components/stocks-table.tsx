@@ -9,51 +9,53 @@ import {
   SortingState,
 } from '@tanstack/react-table';
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/status-badge';
 import { LogoImage } from '@/components/logo-image';
-import { cleanDisplayName, formatCurrency, formatMarketCap, formatNumber } from '@/lib/utils';
-import { ValuationStatus } from '@/lib/types';
+import { cleanDisplayName, formatCurrency, formatMarketCap } from '@/lib/utils';
 
 export interface StockRow {
-  id: string;
+  id: number;
   symbol: string;
-  name: string;
-  isin: string | null;
-  exchange: string | null;
+  name: string | null;
+  exchangeCode: string | null;
   country: string | null;
+  currency: string | null;
+  lastPrice: number | null;
+  marketCap: number | null;
+  sector: string | null;
+  industry: string | null;
   logoUrl?: string | null;
-  price: number | null;
-  marketCap?: number | null;
-  peCurrent: number | null;
-  peAvg: number | null;
-  status: ValuationStatus;
 }
 
 interface StocksTableProps {
   data: StockRow[];
+  onAddToWatchlist?: (stockId: number) => void;
+  activeWatchlistId?: number | null;
+  watchlistStockIds?: Set<number>;
 }
 
-export function StocksTable({ data }: StocksTableProps) {
+export function StocksTable({
+  data,
+  onAddToWatchlist,
+  activeWatchlistId,
+  watchlistStockIds,
+}: StocksTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns: ColumnDef<StockRow>[] = [
     {
       id: 'logo',
       header: '',
-      cell: ({ row }) => {
-        return (
-          <LogoImage
-            src={row.original.logoUrl}
-            name={row.original.name}
-            symbol={row.original.symbol}
-            size={32}
-            loading="lazy"
-          />
-        );
-      },
+      cell: ({ row }) => (
+        <LogoImage
+          src={row.original.logoUrl}
+          name={row.original.name ?? row.original.symbol}
+          symbol={row.original.symbol}
+          size={28}
+          loading="lazy"
+        />
+      ),
       size: 44,
     },
     {
@@ -77,15 +79,10 @@ export function StocksTable({ data }: StocksTableProps) {
         );
       },
       cell: ({ row }) => (
-        <Link
-          href={{
-            pathname: `/stock/${row.original.symbol}`,
-            query: row.original.exchange ? { exchange: row.original.exchange } : {},
-          }}
-          className="font-medium hover:underline"
-        >
-          {cleanDisplayName(row.original.name)}
-        </Link>
+        <div>
+          <div className="font-medium">{cleanDisplayName(row.original.name)}</div>
+          <div className="text-xs text-muted-foreground">{row.original.industry ?? row.original.sector ?? '—'}</div>
+        </div>
       ),
     },
     {
@@ -96,11 +93,11 @@ export function StocksTable({ data }: StocksTableProps) {
       ),
     },
     {
-      accessorKey: 'exchange',
+      accessorKey: 'exchangeCode',
       header: 'Bourse',
       cell: ({ row }) => (
         <div className="text-sm">
-          <div>{row.original.exchange || 'N/A'}</div>
+          <div>{row.original.exchangeCode || 'N/A'}</div>
           {row.original.country && (
             <div className="text-xs text-muted-foreground">{row.original.country}</div>
           )}
@@ -108,7 +105,7 @@ export function StocksTable({ data }: StocksTableProps) {
       ),
     },
     {
-      accessorKey: 'price',
+      accessorKey: 'lastPrice',
       header: ({ column }) => {
         return (
           <Button
@@ -116,7 +113,7 @@ export function StocksTable({ data }: StocksTableProps) {
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
             className="hover:bg-transparent px-0"
           >
-            Prix
+            Dernier prix
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="ml-2 h-4 w-4" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -128,7 +125,9 @@ export function StocksTable({ data }: StocksTableProps) {
         );
       },
       cell: ({ row }) => (
-        <span className="font-medium">{formatCurrency(row.original.price)}</span>
+        <span className="font-medium">
+          {formatCurrency(row.original.lastPrice, row.original.currency ?? 'USD')}
+        </span>
       ),
     },
     {
@@ -139,42 +138,22 @@ export function StocksTable({ data }: StocksTableProps) {
       ),
     },
     {
-      accessorKey: 'peCurrent',
-      header: 'PER Actuel',
-      cell: ({ row }) => (
-        <span className="text-sm">{formatNumber(row.original.peCurrent)}</span>
-      ),
-    },
-    {
-      accessorKey: 'peAvg',
-      header: 'PER Moyen',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatNumber(row.original.peAvg)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => {
+        const alreadyIn = watchlistStockIds?.has(row.original.id) ?? false;
         return (
           <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="hover:bg-transparent px-0"
+            variant={alreadyIn ? 'secondary' : 'default'}
+            size="sm"
+            disabled={!activeWatchlistId || alreadyIn || !onAddToWatchlist}
+            onClick={() => onAddToWatchlist?.(row.original.id)}
           >
-            Statut
-            {column.getIsSorted() === 'asc' ? (
-              <ArrowUp className="ml-2 h-4 w-4" />
-            ) : column.getIsSorted() === 'desc' ? (
-              <ArrowDown className="ml-2 h-4 w-4" />
-            ) : (
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            )}
+            <Plus className="h-4 w-4 mr-2" />
+            {alreadyIn ? 'Ajoute' : 'Ajouter'}
           </Button>
         );
       },
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
   ];
 
@@ -190,12 +169,12 @@ export function StocksTable({ data }: StocksTableProps) {
   });
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/50">
+              <tr key={headerGroup.id} className="border-b bg-muted/40">
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
@@ -214,7 +193,7 @@ export function StocksTable({ data }: StocksTableProps) {
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b transition-colors hover:bg-muted/50"
+                  className="border-b transition-colors hover:bg-muted/40"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="p-4 align-middle">
