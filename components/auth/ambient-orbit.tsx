@@ -40,15 +40,15 @@ export default function AmbientOrbit() {
 
     const seed = () => {
       nodes.length = 0;
-      const count = Math.max(30, Math.floor((width * height) / 18000));
+      const count = Math.max(40, Math.floor((width * height) / 14000));
       for (let i = 0; i < count; i += 1) {
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.25,
-          vy: (Math.random() - 0.5) * 0.25,
-          r: 1 + Math.random() * 1.8,
-          alpha: 0.25 + Math.random() * 0.4,
+          vx: (Math.random() - 0.5) * 0.28,
+          vy: (Math.random() - 0.5) * 0.28,
+          r: 1.2 + Math.random() * 2.2,
+          alpha: 0.35 + Math.random() * 0.45,
         });
       }
     };
@@ -67,7 +67,7 @@ export default function AmbientOrbit() {
       }
 
       // Draw connections
-      const maxDist = Math.min(width, height) * 0.18;
+      const maxDist = Math.min(width, height) * 0.22;
       for (let i = 0; i < nodes.length; i += 1) {
         for (let j = i + 1; j < nodes.length; j += 1) {
           const a = nodes[i];
@@ -76,9 +76,9 @@ export default function AmbientOrbit() {
           const dy = a.y - b.y;
           const dist = Math.hypot(dx, dy);
           if (dist < maxDist) {
-            const alpha = (1 - dist / maxDist) * 0.25;
+            const alpha = (1 - dist / maxDist) * 0.4;
             ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.1;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
@@ -88,7 +88,7 @@ export default function AmbientOrbit() {
       }
 
       // Draw nodes
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
       for (const n of nodes) {
         ctx.globalAlpha = n.alpha;
         ctx.beginPath();

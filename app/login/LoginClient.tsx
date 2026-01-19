@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CardDescription, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthForm } from "@/components/auth/auth-form";
-import AmbientOrbit from "@/components/auth/ambient-orbit";
 import { TrendingUpIcon } from "@/components/icons/trending-up-icon";
+import AmbientOrbit from "@/components/auth/ambient-orbit";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -19,52 +19,35 @@ export default function LoginClient() {
   }, [router]);
 
   return (
-    <div className="container relative h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 font-display">
-      <Link
-        href="/register"
-        className="absolute right-4 top-4 md:right-8 md:top-8 text-sm text-muted-foreground underline-offset-4 hover:underline"
-      >
-        Creer un compte
-      </Link>
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-        <div className="absolute inset-0 bg-black" />
+    <div className="min-h-screen bg-background flex items-center justify-center px-6 md:px-12 font-display relative overflow-hidden">
+      <div className="absolute inset-0">
         <AmbientOrbit />
-        <div className="relative z-20 flex items-center gap-4 text-2xl font-semibold tracking-wide">
-          <TrendingUpIcon size={36} strokeWidth={2} />
-          Daily Finance
-        </div>
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg">
-              &ldquo;Analysez une action facilement, en toute clarte.&rdquo;
-            </p>
-            <footer className="text-sm">Daily Finance</footer>
-          </blockquote>
-        </div>
       </div>
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-4 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <CardTitle className="text-2xl font-semibold tracking-tight whitespace-nowrap text-white font-display">
-              Analysez vos actions simplement.
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-black/70" />
+      <div className="relative w-full max-w-md">
+        <Card className="border-white/10 bg-white text-black shadow-2xl">
+          <CardHeader className="space-y-2 text-center">
+            <div className="mx-auto flex items-center gap-3 text-xl font-semibold tracking-wide text-black">
+              <TrendingUpIcon size={28} strokeWidth={2} />
+              Daily Finance
+            </div>
+            <CardTitle className="text-2xl font-semibold tracking-tight text-black">
+              Se connecter
             </CardTitle>
-            <CardDescription className="text-white/70">
-              Une lecture claire, intuitive, et immediate des donnees boursieres.
+            <CardDescription className="text-neutral-600">
+              Accedez a votre tableau de bord.
             </CardDescription>
-          </div>
-          <AuthForm mode="login" onSuccess={() => router.replace("/")} />
-          <p className="px-8 text-center text-xs text-muted-foreground">
-            En continuant, vous acceptez nos{" "}
-            <Link href="#" className="underline underline-offset-4">
-              conditions d&apos;utilisation
-            </Link>{" "}
-            et{" "}
-            <Link href="#" className="underline underline-offset-4">
-              politique de confidentialite
-            </Link>
-            .
-          </p>
-        </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <AuthForm mode="login" onSuccess={() => router.replace("/")} />
+            <div className="text-center text-xs text-muted-foreground">
+              Pas de compte ?{" "}
+              <Link href="/register" className="underline underline-offset-4">
+                Creer un compte
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
