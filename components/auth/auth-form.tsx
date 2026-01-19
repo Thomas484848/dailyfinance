@@ -20,9 +20,48 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
   const [form, setForm] = React.useState({
     email: "",
     password: "",
+    confirmPassword: "",
     firstName: "",
     lastName: "",
   });
+  const passwordMinLength = 8;
+  const isRegister = mode === "register";
+  const hasUppercase = /[A-Z]/.test(form.password);
+  const hasSpecialChar = /[^A-Za-z0-9]/.test(form.password);
+  const digitCount = (form.password.match(/\d/g) ?? []).length;
+  const hasTwoDigits = digitCount >= 2;
+  const passwordErrors: string[] = [];
+  if (isRegister && form.password.length > 0) {
+    if (form.password.length < passwordMinLength) {
+      passwordErrors.push(`${passwordMinLength} caracteres minimum.`);
+    }
+    if (!hasUppercase) {
+      passwordErrors.push("1 majuscule.");
+    }
+    if (!hasSpecialChar) {
+      passwordErrors.push("1 caractere special.");
+    }
+    if (!hasTwoDigits) {
+      passwordErrors.push("2 chiffres.");
+    }
+  }
+  const isPasswordTooShort =
+    isRegister && form.password.length > 0 && form.password.length < passwordMinLength;
+  const isPasswordRuleMissing =
+    isRegister &&
+    form.password.length > 0 &&
+    (!hasUppercase || !hasSpecialChar || !hasTwoDigits || isPasswordTooShort);
+  const isPasswordMismatch =
+    isRegister &&
+    form.confirmPassword.length > 0 &&
+    form.password !== form.confirmPassword;
+  const isSubmitDisabled =
+    isLoading ||
+    (isRegister &&
+      (!form.password ||
+        !form.confirmPassword ||
+        isPasswordRuleMissing ||
+        isPasswordMismatch));
 
   async function handleLogin(email: string, password: string) {
     const res = await apiFetch("/api/login", {
@@ -46,6 +85,21 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
     event.preventDefault();
     setIsLoading(true);
     try {
+      if (mode === "register") {
+        if (
+          !hasUppercase ||
+          !hasSpecialChar ||
+          !hasTwoDigits ||
+          form.password.length < passwordMinLength
+        ) {
+          throw new Error(
+            `Le mot de passe doit contenir ${passwordMinLength} caracteres, 1 majuscule, 1 caractere special et 2 chiffres.`
+          );
+        }
+        if (form.password !== form.confirmPassword) {
+          throw new Error("Les mots de passe ne correspondent pas.");
+        }
+      }
       if (mode === "register") {
         const res = await apiFetch("/api/register", {
           method: "POST",
@@ -120,7 +174,9 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password" className="text-xs">Mot de passe</Label>
+            <Label htmlFor="password" className="text-xs">
+              Mot de passe
+            </Label>
             <Input
               id="password"
               type="password"
@@ -130,7 +186,32 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
               }
             />
           </div>
-          <Button type="submit" disabled={isLoading}>
+          {mode === "register" && (
+            <div className="grid gap-2">
+              <Label htmlFor="confirmPassword" className="text-xs">
+                Confirmer le mot de passe
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={form.confirmPassword}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                }
+              />
+              {passwordErrors.length > 0 && (
+                <p className="text-xs text-destructive">
+                  {passwordErrors.join(" ")}
+                </p>
+              )}
+              {!isPasswordRuleMissing && isPasswordMismatch && (
+                <p className="text-xs text-destructive">
+                  Les mots de passe ne correspondent pas.
+                </p>
+              )}
+            </div>
+          )}
+          <Button type="submit" disabled={isSubmitDisabled}>
             {mode === "login" ? "Se connecter" : "Creer mon compte"}
           </Button>
         </div>
