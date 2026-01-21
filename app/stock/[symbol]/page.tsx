@@ -49,6 +49,23 @@ function StockPage() {
         if (!stock) {
           throw new Error('Action non trouvee');
         }
+        let historyPoints: { price: number; timestamp: string }[] = [];
+        try {
+          const historyRes = await apiFetch(`/api/stocks/${stock.id}/history?range=1y`);
+          if (historyRes.ok) {
+            const historyData = await historyRes.json();
+            const points = Array.isArray(historyData.points) ? historyData.points : [];
+            historyPoints = points
+              .filter((point) => point && point.price !== null && point.timestamp)
+              .map((point) => ({
+                price: Number(point.price),
+                timestamp: String(point.timestamp),
+              }));
+          }
+        } catch {
+          // ignore
+        }
+
         const data = {
           stock,
           quote: {
@@ -62,7 +79,7 @@ function StockPage() {
             peAvg: null,
             status: 'NA',
           },
-          history: [],
+          history: historyPoints,
         };
         setData(data);
       } catch (err) {
