@@ -63,22 +63,44 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
         isPasswordRuleMissing ||
         isPasswordMismatch));
 
+  function normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+  }
+
+  function storeAuth(token: string, email: string) {
+    window.localStorage.setItem("jwt_token", token);
+    window.localStorage.setItem("user_email", email);
+    window.dispatchEvent(new Event("storage"));
+  }
+
+  function parseJsonSafe(payload: string) {
+    try {
+      return JSON.parse(payload) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleLogin(email: string, password: string) {
+    const normalizedEmail = normalizeEmail(email);
     const res = await apiFetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
+    const raw = await res.text();
+    const data = parseJsonSafe(raw);
     if (!res.ok) {
-      throw new Error("Identifiants invalides");
+      const message =
+        (data && typeof data.message === "string" && data.message) ||
+        (raw.trim().length > 0 ? raw.trim() : "Identifiants invalides");
+      throw new Error(message);
     }
-    const data = await res.json();
-    if (!data.token) {
+    const token = data && typeof data.token === "string" ? data.token : null;
+    if (!token) {
       throw new Error("Token manquant");
     }
-    window.localStorage.setItem("jwt_token", data.token);
-    window.localStorage.setItem("user_email", email);
-    window.dispatchEvent(new Event("storage"));
+    storeAuth(token, normalizedEmail);
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -105,16 +127,28 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: form.email,
+            email: normalizeEmail(form.email),
             password: form.password,
-            firstName: form.firstName,
-            lastName: form.lastName,
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
           }),
         });
         if (!res.ok) {
-          throw new Error("Inscription impossible");
+          const raw = await res.text();
+          const data = parseJsonSafe(raw);
+          const message =
+            (data && typeof data.message === "string" && data.message) ||
+            (raw.trim().length > 0 ? raw.trim() : "Inscription impossible");
+          throw new Error(message);
         }
-        await handleLogin(form.email, form.password);
+        const raw = await res.text();
+        const data = parseJsonSafe(raw);
+        const token = data && typeof data.token === "string" ? data.token : null;
+        if (token) {
+          storeAuth(token, normalizeEmail(form.email));
+        } else {
+          await handleLogin(form.email, form.password);
+        }
       } else {
         await handleLogin(form.email, form.password);
       }

@@ -1,45 +1,47 @@
-"use client";
-import { Suspense, useEffect, useMemo, useState } from 'react';
+﻿"use client";
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { StocksTable, type StockRow } from '@/components/stocks-table';
 import { apiFetch } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { TableSkeleton } from '@/components/table-skeleton';
+import { EmptyState } from '@/components/empty-state';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+
+type WatchlistItem = {
+  id: number;
+  stockId: number;
+};
 
 type Watchlist = {
   id: number;
   name: string;
-  description: string | null;
   isDefault: boolean;
-};
-
-type WatchlistItem = {
-  id: number;
-  watchlistId: number;
-  stock: {
-    id: number;
-    symbol: string;
-    name: string | null;
-    exchangeCode: string | null;
-  } | null;
-  addedAt: string;
-  position: number | null;
-  note: string | null;
-  tags: string[] | null;
-  alertPriceAbove: string | null;
-  alertPriceBelow: string | null;
+  color?: string | null;
+  coverImage?: string | null;
 };
 
 function HomePage() {
@@ -48,22 +50,18 @@ function HomePage() {
   const [token, setToken] = useState<string | null | undefined>(undefined);
 
   const [stocks, setStocks] = useState<StockRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 30;
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [activeWatchlistId, setActiveWatchlistId] = useState<number | null>(null);
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [watchlistForm, setWatchlistForm] = useState({
-    name: '',
-    description: '',
-  });
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [itemDraft, setItemDraft] = useState({
-    note: '',
-    alertPriceAbove: '',
-    alertPriceBelow: '',
-    tags: '',
-  });
+  const [watchlistCounts, setWatchlistCounts] = useState<Record<number, number>>({});
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState('');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -82,35 +80,85 @@ function HomePage() {
     }
   }, [router, token]);
 
-  const watchlistStockIds = useMemo(() => {
-    return new Set(
-      watchlistItems
-        .map((item) => item.stock?.id)
-        .filter((id): id is number => typeof id === 'number')
-    );
-  }, [watchlistItems]);
+  const mapStock = (stock: any): StockRow => {
+    return {
+      id: typeof stock.id === 'number' ? stock.id : Number(stock.id),
+      symbol: stock.symbol ?? '',
+      name: stock.name ?? null,
+      exchangeCode: stock.exchangeCode ?? stock.exchange ?? null,
+      country: stock.country ?? null,
+      currency: stock.currency ?? null,
+      lastPrice: stock.lastPrice ?? stock.price ?? null,
+      marketCap: stock.marketCap ?? null,
+      sector: stock.sector ?? null,
+      industry: stock.industry ?? null,
+      logoUrl: stock.logoUrl ?? null,
+    };
+  };
 
-
-  async function fetchStocksAndWatchlists() {
+  async function fetchStocks() {
     setLoading(true);
+    setLoadError(null);
     try {
-      const [stocksRes, watchlistsRes] = await Promise.all([
-        apiFetch('/api/stocks'),
-        apiFetch('/api/watchlists'),
-      ]);
-      if (!stocksRes.ok) throw new Error('Erreur chargement stocks');
-      if (!watchlistsRes.ok) throw new Error('Erreur chargement watchlists');
+      const query = `?page=${page}&itemsPerPage=${itemsPerPage}`;
+      const stocksRes = await apiFetch(`/api/stocks${query}`);
+      if (!stocksRes.ok) {
+        let message = `Erreur chargement stocks (${stocksRes.status})`;
+        try {
+          const data = await stocksRes.json();
+          if (data?.message) message = String(data.message);
+        } catch {
+          // ignore
+        }
+        if (stocksRes.status === 401) {
+          message = 'Session expiree. Reconnectez-vous.';
+        }
+        throw new Error(message);
+      }
       const stocksData = await stocksRes.json();
-      const watchlistsData = await watchlistsRes.json();
-      setStocks(stocksData.stocks || []);
-      setWatchlists(watchlistsData.watchlists || []);
-      if (!activeWatchlistId && watchlistsData.watchlists?.length) {
-        setActiveWatchlistId(watchlistsData.watchlists[0].id);
+      const member = Array.isArray(stocksData.member)
+        ? stocksData.member
+        : Array.isArray(stocksData['hydra:member'])
+        ? stocksData['hydra:member']
+        : null;
+      if (member) {
+        const items = member.map(mapStock);
+        setStocks(items);
+        const total =
+          typeof stocksData.totalItems === 'number'
+            ? stocksData.totalItems
+            : typeof stocksData['hydra:totalItems'] === 'number'
+            ? stocksData['hydra:totalItems']
+            : items.length;
+        setTotalItems(total);
+        const view = stocksData.view ?? stocksData['hydra:view'];
+        const lastLink = view?.last ?? view?.['hydra:last'];
+        if (lastLink) {
+          const last = new URL(lastLink, window.location.origin);
+          const lastPage = Number(last.searchParams.get('page') ?? 1);
+          setTotalPages(lastPage || 1);
+        } else {
+          setTotalPages(Math.max(1, Math.ceil(total / itemsPerPage)));
+        }
+      } else {
+        setStocks(stocksData.stocks || []);
+        if (stocksData.pagination?.totalPages) {
+          setTotalPages(stocksData.pagination.totalPages);
+        } else {
+          setTotalPages(1);
+        }
+        if (typeof stocksData.pagination?.total === 'number') {
+          setTotalItems(stocksData.pagination.total);
+        } else {
+          setTotalItems(0);
+        }
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      setLoadError(message);
       toast({
         title: 'Erreur de chargement',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -118,84 +166,106 @@ function HomePage() {
     }
   }
 
-  async function fetchWatchlistItems(watchlistId: number) {
-    try {
-      const res = await apiFetch(`/api/watchlists/${watchlistId}/items`);
-      if (!res.ok) throw new Error('Erreur chargement watchlist');
-      const data = await res.json();
-      setWatchlistItems(data.items || []);
-    } catch (error) {
-      toast({
-        title: 'Erreur watchlist',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: 'destructive',
-      });
-    }
-  }
+  useEffect(() => {
+    if (!token) return;
+    fetchStocks();
+  }, [token, page]);
 
   useEffect(() => {
     if (!token) return;
-    fetchStocksAndWatchlists();
+    const loadWatchlists = async () => {
+      try {
+        const res = await apiFetch('/api/watchlists');
+        if (!res.ok) return;
+        let lists = ((await res.json()).watchlists ?? []) as Watchlist[];
+        const hasDefault = lists.some((list) => list.isDefault);
+        if (!lists.length || !hasDefault) {
+          const created = await apiFetch('/api/watchlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Favoris', isDefault: true, color: 'amber' }),
+          });
+          if (created.ok) {
+            const refreshed = await apiFetch('/api/watchlists');
+            if (refreshed.ok) {
+              lists = ((await refreshed.json()).watchlists ?? []) as Watchlist[];
+            }
+          }
+        }
+        const sorted = [...lists].sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+        setWatchlists(sorted);
+        setActiveWatchlistId((current) => current ?? (sorted[0]?.id ?? null));
+        const countEntries = await Promise.all(
+          sorted.map(async (list) => {
+            const itemsRes = await apiFetch(`/api/watchlists/${list.id}/items`);
+            if (!itemsRes.ok) return [list.id, 0] as const;
+            const data = await itemsRes.json();
+            const items = (data.items ?? []) as Array<unknown>;
+            return [list.id, items.length] as const;
+          })
+        );
+        setWatchlistCounts(Object.fromEntries(countEntries));
+      } catch {
+        // ignore
+      }
+    };
+    loadWatchlists();
   }, [token]);
 
-  useEffect(() => {
-    if (!activeWatchlistId) return;
-    fetchWatchlistItems(activeWatchlistId);
-  }, [activeWatchlistId]);
-
-  async function createWatchlist() {
-    if (!watchlistForm.name.trim()) {
-      toast({ title: 'Nom requis', variant: 'destructive' });
-      return;
-    }
+  const handleCreateWatchlist = async () => {
+    const name = newWatchlistName.trim();
+    if (!name) return;
     try {
       const res = await apiFetch('/api/watchlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: watchlistForm.name.trim(),
-          description: watchlistForm.description.trim() || null,
-          isDefault: watchlists.length === 0,
-        }),
+        body: JSON.stringify({ name }),
       });
       if (!res.ok) throw new Error('Creation impossible');
-      const data = await res.json();
-      const next = [...watchlists, data];
+      const created = (await res.json()) as Watchlist;
+      const next = [...watchlists, created].sort(
+        (a, b) => Number(b.isDefault) - Number(a.isDefault)
+      );
       setWatchlists(next);
-      setWatchlistForm({ name: '', description: '' });
-      setActiveWatchlistId(data.id);
-      setDialogOpen(false);
-      toast({ title: 'Watchlist creee' });
-    } catch (error) {
-      toast({
-        title: 'Erreur creation',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: 'destructive',
-      });
+      setActiveWatchlistId(created.id ?? null);
+      setWatchlistCounts((prev) => ({ ...prev, [created.id]: 0 }));
+      setNewWatchlistName('');
+      setIsCreateOpen(false);
+    } catch {
+      // ignore
     }
-  }
+  };
 
-  async function deleteWatchlist(id: number) {
-    try {
-      const res = await apiFetch(`/api/watchlists/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Suppression impossible');
-      const next = watchlists.filter((wl) => wl.id !== id);
-      setWatchlists(next);
-      if (activeWatchlistId === id) {
-        setActiveWatchlistId(next[0]?.id ?? null);
-        setWatchlistItems([]);
+  useEffect(() => {
+    if (!token || !activeWatchlistId) return;
+    const loadItems = async () => {
+      try {
+        const res = await apiFetch(`/api/watchlists/${activeWatchlistId}/items`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = (data.items ?? []) as Array<{
+          id: number;
+          stock: { id: number } | null;
+        }>;
+        setWatchlistItems(
+          items
+            .filter((item) => item.stock && typeof item.stock.id === 'number')
+            .map((item) => ({ id: item.id, stockId: item.stock!.id }))
+        );
+        setWatchlistCounts((prev) => ({
+          ...prev,
+          [activeWatchlistId]: items.length,
+        }));
+      } catch {
+        // ignore
       }
-      toast({ title: 'Watchlist supprimee' });
-    } catch (error) {
-      toast({
-        title: 'Erreur suppression',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: 'destructive',
-      });
-    }
-  }
+    };
+    loadItems();
+  }, [token, activeWatchlistId]);
 
-  async function addStockToWatchlist(stockId: number) {
+  const watchlistStockIds = new Set(watchlistItems.map((item) => item.stockId));
+
+  const handleAddToWatchlist = async (stockId: number) => {
     if (!activeWatchlistId) return;
     try {
       const res = await apiFetch(`/api/watchlists/${activeWatchlistId}/items`, {
@@ -205,61 +275,27 @@ function HomePage() {
       });
       if (!res.ok) throw new Error('Ajout impossible');
       const data = await res.json();
-      setWatchlistItems((prev) => [...prev, data]);
-      toast({ title: 'Action ajoutee a la watchlist' });
+      const itemId = typeof data.id === 'number' ? data.id : null;
+      setWatchlistItems((prev) =>
+        prev.some((item) => item.stockId === stockId)
+          ? prev
+          : [...prev, { id: itemId ?? Date.now(), stockId }]
+      );
+      toast({ title: 'Ajoute a la watchlist' });
     } catch (error) {
       toast({
-        title: 'Erreur ajout',
+        title: 'Erreur',
         description: error instanceof Error ? error.message : 'Erreur inconnue',
         variant: 'destructive',
       });
     }
-  }
+  };
 
-  async function removeItem(itemId: number) {
-    if (!activeWatchlistId) return;
-    try {
-      const res = await apiFetch(`/api/watchlists/${activeWatchlistId}/items/${itemId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Suppression impossible');
-      setWatchlistItems((prev) => prev.filter((item) => item.id !== itemId));
-      if (editingItemId === itemId) setEditingItemId(null);
-    } catch (error) {
-      toast({
-        title: 'Erreur suppression',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: 'destructive',
-      });
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages || 1);
     }
-  }
-
-  async function saveItemChanges() {
-    if (!activeWatchlistId || editingItemId === null) return;
-    try {
-      const payload = {
-        note: itemDraft.note || null,
-        alertPriceAbove: itemDraft.alertPriceAbove || null,
-        alertPriceBelow: itemDraft.alertPriceBelow || null,
-        tags: itemDraft.tags ? itemDraft.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : null,
-      };
-      const res = await apiFetch(`/api/watchlists/${activeWatchlistId}/items/${editingItemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('Mise a jour impossible');
-      const data = await res.json();
-      setWatchlistItems((prev) => prev.map((item) => (item.id === editingItemId ? data : item)));
-      toast({ title: 'Item mis a jour' });
-    } catch (error) {
-      toast({
-        title: 'Erreur modification',
-        description: error instanceof Error ? error.message : 'Erreur inconnue',
-        variant: 'destructive',
-      });
-    }
-  }
+  }, [page, totalPages]);
 
   if (token === undefined) {
     return null;
@@ -269,246 +305,171 @@ function HomePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Suivez vos watchlists et ajoutez rapidement des actions.
+    <div className="container mx-auto space-y-8 px-4 py-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold text-white">
+            Analysez une action en quelques secondes.
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Recherchez une action, consultez ses donnees clefs, puis ouvrez la fiche detaillee pour
+            aller plus loin.
           </p>
         </div>
-        <Card className="flex items-center gap-4 px-4 py-3">
-          <div>
-            <p className="text-xs uppercase text-muted-foreground">Actions suivies</p>
-            <p className="text-lg font-semibold">{watchlistItems.length}</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div>
-            <p className="text-xs uppercase text-muted-foreground">Stocks disponibles</p>
-            <p className="text-lg font-semibold">{stocks.length}</p>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-        <Card className="p-4 space-y-4 h-fit">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Watchlists</h2>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="icon" variant="ghost">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nouvelle watchlist</DialogTitle>
-                  <DialogDescription>
-                    Donnez un nom clair a votre watchlist.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <Input
-                    placeholder="Nom"
-                    value={watchlistForm.name}
-                    onChange={(event) =>
-                      setWatchlistForm((prev) => ({ ...prev, name: event.target.value }))
-                    }
-                  />
-                  <Input
-                    placeholder="Description (optionnel)"
-                    value={watchlistForm.description}
-                    onChange={(event) =>
-                      setWatchlistForm((prev) => ({ ...prev, description: event.target.value }))
-                    }
-                  />
-                </div>
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-                    Annuler
-                  </Button>
-                  <Button onClick={createWatchlist}>Creer</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="space-y-2">
-            {watchlists.map((watchlist) => (
-              <button
-                key={watchlist.id}
-                onClick={() => setActiveWatchlistId(watchlist.id)}
-                className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                  activeWatchlistId === watchlist.id
-                    ? 'border-primary bg-primary/10'
-                    : 'border-transparent hover:bg-muted'
-                }`}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <a href="#stocks">Parcourir les actions</a>
+          </Button>
+          {watchlists.length > 0 && (
+            <div className="min-w-[180px]">
+              <Select
+                value={activeWatchlistId ? String(activeWatchlistId) : undefined}
+                onValueChange={(value) => {
+                  if (value === '__create__') {
+                    setIsCreateOpen(true);
+                    return;
+                  }
+                  setActiveWatchlistId(Number(value));
+                }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{watchlist.name}</p>
-                    {watchlist.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {watchlist.description}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deleteWatchlist(watchlist.id);
-                    }}
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir une watchlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {watchlists.map((list) => (
+                    <SelectItem key={list.id} value={String(list.id)}>
+                      {list.name}
+                      {typeof watchlistCounts[list.id] === 'number'
+                        ? ` (${watchlistCounts[list.id]})`
+                        : ''}
+                    </SelectItem>
+                  ))}
+                  <SelectItem
+                    value="__create__"
                   >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-            <p className="text-xs uppercase text-muted-foreground">
-              Nouvelle watchlist
-            </p>
-            <Button variant="outline" className="w-full" onClick={() => setDialogOpen(true)}>
-              Creer une watchlist
-            </Button>
-          </div>
-        </Card>
-
-        <div className="space-y-6">
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">Contenu de la watchlist</h2>
-                <p className="text-sm text-muted-foreground">
-                  {activeWatchlistId
-                    ? 'Cliquez sur une action pour modifier les alertes.'
-                    : 'Selectionnez une watchlist.'}
-                </p>
-              </div>
+                    + Creer une watchlist
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            {watchlistItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground mt-4">
-                Aucune action pour le moment.
-              </p>
-            ) : (
-              <div className="grid gap-3 mt-4">
-                {watchlistItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`rounded-lg border p-3 transition ${
-                      editingItemId === item.id ? 'border-primary bg-primary/5' : 'bg-background'
-                    }`}
-                    onClick={() => {
-                      setEditingItemId(item.id);
-                      setItemDraft({
-                        note: item.note ?? '',
-                        alertPriceAbove: item.alertPriceAbove ?? '',
-                        alertPriceBelow: item.alertPriceBelow ?? '',
-                        tags: item.tags?.join(', ') ?? '',
-                      });
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="font-medium">
-                          {item.stock?.name ?? item.stock?.symbol ?? '—'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.stock?.symbol ?? '—'} {item.stock?.exchangeCode ? `· ${item.stock.exchangeCode}` : ''}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          removeItem(item.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {item.note && (
-                      <p className="text-xs text-muted-foreground mt-2">{item.note}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {editingItemId && (
-              <div className="mt-6 rounded-lg border bg-muted/30 p-4 space-y-3">
-                <p className="text-sm font-medium">Modifier l&apos;item</p>
-                <Input
-                  placeholder="Note"
-                  value={itemDraft.note}
-                  onChange={(event) =>
-                    setItemDraft((prev) => ({ ...prev, note: event.target.value }))
-                  }
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    placeholder="Alerte au-dessus"
-                    value={itemDraft.alertPriceAbove}
-                    onChange={(event) =>
-                      setItemDraft((prev) => ({ ...prev, alertPriceAbove: event.target.value }))
-                    }
-                  />
-                  <Input
-                    placeholder="Alerte en dessous"
-                    value={itemDraft.alertPriceBelow}
-                    onChange={(event) =>
-                      setItemDraft((prev) => ({ ...prev, alertPriceBelow: event.target.value }))
-                    }
-                  />
-                </div>
-                <Input
-                  placeholder="Tags (ex: long, tech)"
-                  value={itemDraft.tags}
-                  onChange={(event) =>
-                    setItemDraft((prev) => ({ ...prev, tags: event.target.value }))
-                  }
-                />
-                <div className="flex gap-2">
-                  <Button onClick={saveItemChanges}>Sauvegarder</Button>
-                  <Button variant="ghost" onClick={() => setEditingItemId(null)}>
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">Stocks disponibles</h2>
-                <p className="text-sm text-muted-foreground">
-                  {activeWatchlistId
-                    ? 'Ajoutez des actions a la watchlist selectionnee.'
-                    : 'Selectionnez une watchlist pour ajouter des actions.'}
-                </p>
-              </div>
-            </div>
-
-            {loading ? (
-              <Card className="p-6 text-sm text-muted-foreground">Chargement...</Card>
-            ) : (
-              <StocksTable
-                data={stocks}
-                activeWatchlistId={activeWatchlistId}
-                onAddToWatchlist={addStockToWatchlist}
-                watchlistStockIds={watchlistStockIds}
-              />
-            )}
-          </div>
+          )}
         </div>
       </div>
+
+      <section id="stocks">
+        <div className="flex flex-row items-start justify-between gap-4">
+        </div>
+        {totalPages > 1 && (
+          <Pagination className="mb-4">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#stocks"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage((prev) => Math.max(1, prev - 1));
+                  }}
+                  className={page <= 1 ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="px-3 text-sm text-muted-foreground">
+                  Page {page} / {totalPages}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#stocks"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage((prev) => Math.min(totalPages, prev + 1));
+                  }}
+                  className={page >= totalPages ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+        <div>
+          {loading ? (
+            <TableSkeleton />
+          ) : loadError ? (
+            <EmptyState
+              title="Erreur de chargement"
+              description={loadError}
+            />
+          ) : stocks.length === 0 ? (
+            <EmptyState
+              title="Aucune action disponible"
+              description="L'import des actions n'a pas encore ete lance."
+            />
+          ) : (
+            <StocksTable
+              data={stocks}
+              onAddToWatchlist={handleAddToWatchlist}
+              activeWatchlistId={activeWatchlistId}
+              watchlistStockIds={watchlistStockIds}
+            />
+          )}
+        </div>
+        {totalPages > 1 && (
+          <Pagination className="mt-6">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#stocks"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage((prev) => Math.max(1, prev - 1));
+                  }}
+                  className={page <= 1 ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="px-3 text-sm text-muted-foreground">
+                  Page {page} / {totalPages}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#stocks"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage((prev) => Math.min(totalPages, prev + 1));
+                  }}
+                  className={page >= totalPages ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+        <div className="mt-2 text-xs text-muted-foreground">
+          {totalItems} actions au total
+        </div>
+      </section>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouvelle watchlist</DialogTitle>
+            <DialogDescription>
+              Donne un nom a ta watchlist (ex: US Technologie).
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newWatchlistName}
+            onChange={(event) => setNewWatchlistName(event.target.value)}
+            placeholder="Nom de la watchlist"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleCreateWatchlist} disabled={!newWatchlistName.trim()}>
+              Creer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -520,4 +481,3 @@ export default function HomePageWrapper() {
     </Suspense>
   );
 }
-

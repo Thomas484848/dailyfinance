@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk, Fraunces } from 'next/font/google';
+import { Fraunces, Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Header } from '@/components/header';
 import { QueryProvider } from '@/components/query-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
+import AuthGate from './AuthGate';
 
-const spaceGrotesk = Space_Grotesk({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
+  weight: ['400', '500', '600', '700'],
 });
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -27,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${spaceGrotesk.variable} ${fraunces.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -35,10 +39,17 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
-            <div className="min-h-screen bg-background">
-              <Header />
-              <main>{children}</main>
-            </div>
+            <AuthGate>
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset>
+                  <div className="min-h-screen bg-background">
+                    <Header />
+                    <main>{children}</main>
+                  </div>
+                </SidebarInset>
+              </SidebarProvider>
+            </AuthGate>
             <Toaster />
           </QueryProvider>
         </ThemeProvider>

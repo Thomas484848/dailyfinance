@@ -1,87 +1,61 @@
-import { type ClassValue, clsx } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value: number | null, currency = 'USD'): string {
-  if (value === null) return 'N/A';
-  const safeCurrency =
-    typeof currency === 'string' && currency.trim().length >= 3 ? currency : 'USD';
+export function cleanDisplayName(value: string | null | undefined) {
+  if (!value) return '—';
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  return trimmed || '—';
+}
+
+export function formatNumber(value: number | null | undefined, maximumFractionDigits = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
   return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: safeCurrency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits,
   }).format(value);
 }
 
-export function formatNumber(value: number | null): string {
-  if (value === null) return 'N/A';
-  return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+export function formatPercent(value: number | null | undefined, fractionDigits = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  const formatted = new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value);
+  return `${formatted}%`;
 }
 
-export function formatMarketCap(value: number | null): string {
-  if (value === null) return 'N/A';
-
-  if (value >= 1e12) {
-    return `${(value / 1e12).toFixed(2)}T`;
+export function formatCurrency(value: number | null | undefined, currency = 'USD') {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2,
+    }).format(value);
   }
-  if (value >= 1e9) {
-    return `${(value / 1e9).toFixed(2)}B`;
-  }
-  if (value >= 1e6) {
-    return `${(value / 1e6).toFixed(2)}M`;
-  }
-  return formatNumber(value);
 }
 
-export function formatPercent(value: number | null): string {
-  if (value === null) return 'N/A';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
+export function formatMarketCap(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  const abs = Math.abs(value);
+  const formatWithUnit = (divisor: number, unit: string) => {
+    const scaled = value / divisor;
+    const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+    return `${formatNumber(scaled, digits)} ${unit}`;
+  };
+
+  if (abs >= 1_000_000_000_000) return formatWithUnit(1_000_000_000_000, 'T');
+  if (abs >= 1_000_000_000) return formatWithUnit(1_000_000_000, 'B');
+  if (abs >= 1_000_000) return formatWithUnit(1_000_000, 'M');
+  if (abs >= 1_000) return formatWithUnit(1_000, 'K');
+  return formatNumber(value, 2);
 }
-
-export function cleanDisplayName(name: string | null | undefined): string {
-  if (!name) return '';
-  let cleaned = name.trim();
-  const patterns = [
-    /\s+-\s+CLASS\s+[A-Z].*$/i,
-    /\s+-\s+UNITS?$/i,
-    /\s+-\s+WARRANTS?$/i,
-    /\s+COMMON\s+STOCK$/i,
-    /\s+ORDINARY\s+SHARES?$/i,
-    /\s+CLASS\s+[A-Z]$/i,
-    /\s+CORPORATION$/i,
-    /\s+CORP\.?$/i,
-    /\s+INC\.?$/i,
-    /\s+INCORPORATED$/i,
-    /\s+LTD\.?$/i,
-    /\s+LIMITED$/i,
-    /\s+PLC\.?$/i,
-  ];
-
-  for (const pattern of patterns) {
-    cleaned = cleaned.replace(pattern, '');
-  }
-
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  return cleaned.length > 1 ? cleaned : name.trim();
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function chunk<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
-

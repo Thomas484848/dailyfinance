@@ -23,5 +23,13 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}) {
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers });
+  if (typeof window !== 'undefined' && response.status === 401) {
+    const pathname = window.location.pathname;
+    if (pathname !== '/login' && pathname !== '/register') {
+      window.localStorage.setItem('session_expired', '1');
+      window.location.href = '/login?expired=1';
+    }
+  }
+  return response;
 }

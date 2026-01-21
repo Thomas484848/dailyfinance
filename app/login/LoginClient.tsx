@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { AuthForm } from "@/components/auth/auth-form";
 import AmbientOrbit from "@/components/auth/ambient-orbit";
@@ -10,6 +10,8 @@ import { TrendingUpIcon } from "@/components/icons/trending-up-icon";
 
 export default function LoginClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -17,6 +19,16 @@ export default function LoginClient() {
       router.replace("/");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flag = window.localStorage.getItem("session_expired");
+    const param = searchParams?.get("expired");
+    if (flag === "1" || param === "1") {
+      setExpired(true);
+      window.localStorage.removeItem("session_expired");
+    }
+  }, [searchParams]);
 
   return (
     <div className="container relative h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 font-display">
@@ -52,6 +64,11 @@ export default function LoginClient() {
               L&apos;analyse facile pour les actions cotees en bourse.
             </CardDescription>
           </div>
+          {expired && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+              Session expiree. Merci de vous reconnecter.
+            </div>
+          )}
           <AuthForm mode="login" onSuccess={() => router.replace("/")} />
           <p className="px-8 text-center text-xs text-muted-foreground">
             En continuant, vous acceptez nos{" "}

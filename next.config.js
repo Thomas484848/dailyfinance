@@ -22,6 +22,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'www.financialmodelingprep.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.financialmodelingprep.com',
+      },
     ],
   },
 };

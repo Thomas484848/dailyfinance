@@ -31,15 +31,40 @@ function StockPage() {
   useEffect(() => {
     async function fetchStock() {
       try {
-        const query = exchange ? `?exchange=${encodeURIComponent(exchange)}` : '';
-        const res = await apiFetch(`/api/stocks/${symbol}${query}`);
+        const params = new URLSearchParams();
+        params.set('symbol', symbol);
+        if (exchange) {
+          params.set('exchangeCode', exchange);
+        }
+        params.set('itemsPerPage', '1');
+        const res = await apiFetch(`/api/stocks?${params.toString()}`);
 
         if (!res.ok) {
           throw new Error('Action non trouvee');
         }
 
-        const stockData = await res.json();
-        setData(stockData);
+        const payload = await res.json();
+        const member = payload.member ?? payload['hydra:member'] ?? [];
+        const stock = member[0];
+        if (!stock) {
+          throw new Error('Action non trouvee');
+        }
+        const data = {
+          stock,
+          quote: {
+            price: stock.lastPrice ?? null,
+            change: stock.change ?? null,
+            changePercent: stock.changePercent ?? null,
+            timestamp: stock.quoteTimestamp ?? null,
+          },
+          valuation: {
+            peCurrent: stock.peTtm ?? null,
+            peAvg: null,
+            status: 'NA',
+          },
+          history: [],
+        };
+        setData(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur inconnue');
       } finally {
@@ -52,10 +77,68 @@ function StockPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-3/4" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
+        <Skeleton className="h-5 w-24" />
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-14 w-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-40" />
+        </div>
+
+        <Card>
+          <CardContent className="p-6">
+            <Skeleton className="h-56 w-full" />
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-10 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-28" />
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-24" />
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-28" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-20 w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -71,11 +154,12 @@ function StockPage() {
 
   const { stock, quote, valuation } = data;
   const displayName = cleanDisplayName(stock.name);
+  const exchangeLabel = stock.exchangeCode ?? stock.exchange ?? null;
   const descriptionParts = [
     stock.country ? `du pays ${stock.country}` : null,
     stock.sector ? `du secteur ${stock.sector}` : null,
     stock.industry ? `de l'industrie ${stock.industry}` : null,
-    stock.exchange ? `cotee sur ${stock.exchange}` : null,
+    exchangeLabel ? `cotee sur ${exchangeLabel}` : null,
   ].filter(Boolean);
   const fallbackDescription = descriptionParts.length
     ? `${displayName} est une entreprise ${descriptionParts.join(', ')}.`
@@ -88,7 +172,7 @@ function StockPage() {
     'animate-in fade-in slide-in-from-bottom-2 duration-700 ease-out fill-mode-both';
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
       <Link
         href="/"
         className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
@@ -112,10 +196,10 @@ function StockPage() {
             <h1 className="text-4xl font-bold tracking-tight mb-2">{displayName}</h1>
             <div className="flex items-center gap-3 text-muted-foreground">
               <span className="font-mono text-lg">{stock.symbol}</span>
-              {stock.exchange && (
+              {exchangeLabel && (
                 <>
                   <span></span>
-                  <span>{stock.exchange}</span>
+                  <span>{exchangeLabel}</span>
                 </>
               )}
               {stock.country && (
@@ -164,7 +248,10 @@ function StockPage() {
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                Derniere mise a jour: {new Date(quote.timestamp).toLocaleString('fr-FR')}
+                Derniere mise a jour:{' '}
+                {quote.timestamp
+                  ? new Date(quote.timestamp).toLocaleString('fr-FR')
+                  : '—'}
               </div>
             </div>
           ) : (
@@ -229,10 +316,10 @@ function StockPage() {
                 <div className="font-medium">{stock.country}</div>
               </div>
             )}
-            {stock.exchange && (
+            {exchangeLabel && (
               <div>
                 <div className="text-sm text-muted-foreground">Bourse</div>
-                <div className="font-medium">{stock.exchange}</div>
+                <div className="font-medium">{exchangeLabel}</div>
               </div>
             )}
             {stock.marketCap && (

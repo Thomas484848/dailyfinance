@@ -9,10 +9,12 @@ import {
   SortingState,
 } from '@tanstack/react-table';
 import { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Plus } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Plus, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LogoImage } from '@/components/logo-image';
 import { cleanDisplayName, formatCurrency, formatMarketCap } from '@/lib/utils';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export interface StockRow {
   id: number;
@@ -31,6 +33,7 @@ export interface StockRow {
 interface StocksTableProps {
   data: StockRow[];
   onAddToWatchlist?: (stockId: number) => void;
+  onRemoveFromWatchlist?: (stockId: number) => void;
   activeWatchlistId?: number | null;
   watchlistStockIds?: Set<number>;
 }
@@ -38,9 +41,11 @@ interface StocksTableProps {
 export function StocksTable({
   data,
   onAddToWatchlist,
+  onRemoveFromWatchlist,
   activeWatchlistId,
   watchlistStockIds,
 }: StocksTableProps) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns: ColumnDef<StockRow>[] = [
@@ -89,7 +94,12 @@ export function StocksTable({
       accessorKey: 'symbol',
       header: 'Ticker',
       cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.original.symbol}</span>
+        <Link
+          href={`/stock/${row.original.symbol}`}
+          className="font-mono text-sm underline underline-offset-4 hover:text-foreground"
+        >
+          {row.original.symbol}
+        </Link>
       ),
     },
     {
@@ -142,17 +152,48 @@ export function StocksTable({
       header: '',
       cell: ({ row }) => {
         const alreadyIn = watchlistStockIds?.has(row.original.id) ?? false;
-        return (
-          <Button
-            variant={alreadyIn ? 'secondary' : 'default'}
-            size="sm"
-            disabled={!activeWatchlistId || alreadyIn || !onAddToWatchlist}
-            onClick={() => onAddToWatchlist?.(row.original.id)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {alreadyIn ? 'Ajoute' : 'Ajouter'}
-          </Button>
-        );
+        if (onRemoveFromWatchlist) {
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!alreadyIn}
+                onClick={() => onRemoveFromWatchlist(row.original.id)}
+              >
+                Retirer
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/stock/${row.original.symbol}`}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Détails
+                </Link>
+              </Button>
+            </div>
+          );
+        }
+        if (onAddToWatchlist) {
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant={alreadyIn ? 'secondary' : 'default'}
+                size="sm"
+                disabled={!activeWatchlistId || alreadyIn || !onAddToWatchlist}
+                onClick={() => onAddToWatchlist?.(row.original.id)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {alreadyIn ? 'Deja dans la watchlist' : 'Ajouter a la watchlist'}
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/stock/${row.original.symbol}`}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Détails
+                </Link>
+              </Button>
+            </div>
+          );
+        }
+        return null;
       },
     },
   ];
@@ -167,6 +208,13 @@ export function StocksTable({
       sorting,
     },
   });
+
+  const shouldIgnoreRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+    return Boolean(
+      target.closest('a,button,input,textarea,select,[role="button"]')
+    );
+  };
 
   return (
     <div className="rounded-xl border bg-card shadow-sm">
@@ -193,7 +241,11 @@ export function StocksTable({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b transition-colors hover:bg-muted/40"
+                  className="border-b transition-colors hover:bg-muted/40 cursor-pointer"
+                  onClick={(event) => {
+                    if (shouldIgnoreRowClick(event.target)) return;
+                    router.push(`/stock/${row.original.symbol}`);
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="p-4 align-middle">
