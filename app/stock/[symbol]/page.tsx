@@ -54,7 +54,9 @@ function StockPage() {
           const historyRes = await apiFetch(`/api/stocks/${stock.id}/history?range=1y`);
           if (historyRes.ok) {
             const historyData = await historyRes.json();
-            const points = Array.isArray(historyData.points) ? historyData.points : [];
+            const points = Array.isArray(historyData.points)
+              ? (historyData.points as Array<{ price?: number | null; timestamp?: string | null }>)
+              : [];
             historyPoints = points
               .filter((point) => point && point.price !== null && point.timestamp)
               .map((point) => ({
