@@ -68,3 +68,9 @@ export function chunk<T>(items: T[], size: number): T[][] {
   }
   return result;
 }
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
