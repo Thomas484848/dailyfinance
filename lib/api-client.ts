@@ -27,8 +27,9 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}) {
   if (typeof window !== 'undefined' && response.status === 401) {
     const pathname = window.location.pathname;
     if (pathname !== '/login' && pathname !== '/register') {
+      window.localStorage.removeItem('jwt_token');
       window.localStorage.setItem('session_expired', '1');
-      window.location.href = '/login?expired=1';
+      window.location.href = '/login';
     }
   }
   return response;
